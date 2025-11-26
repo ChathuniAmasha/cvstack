@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel      #Ensures that whatever comes from Gemini or the API is valid JSON, with correct fields
 from typing import List, Optional
 
 

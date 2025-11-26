@@ -1,4 +1,4 @@
-import logging
+import logging   #ensures every log message printed across the app uses the same format, timestamp, and log level.
 import sys
 from .config import settings
 

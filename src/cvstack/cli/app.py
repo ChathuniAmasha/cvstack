@@ -81,51 +81,37 @@ def main() -> None:
 from typing import Any, Dict, List, Tuple
 import json
 
-def compact_text_for_embedding(section: Dict[str, Any], topic: str) -> str:
-    if topic == "education":
-        return ", ".join(filter(None, [
-            section.get("degree"), section.get("field"),
-            section.get("institution"),
-            f"{section.get('start','')}–{section.get('end','')}",
-            section.get("grade"),
-        ]))
-    if topic == "projects":
-        skills = ", ".join(section.get("skills") or [])
-        return " | ".join(filter(None, [
-            section.get("title"), section.get("summary"),
-            f"Skills: {skills}" if skills else "", section.get("impact"),
-        ]))
-    if topic == "experience":
-        highlights = "; ".join(section.get("highlights") or [])
-        return " | ".join(filter(None, [
-            f"{section.get('role','')} @ {section.get('company','')}",
-            f"{section.get('start','')}–{section.get('end','')}",
-            section.get("summary"),
-            f"Highlights: {highlights}" if highlights else "",
-        ]))
-    if topic == "skills":
-        return section.get("skill", "")
-    return json.dumps(section, ensure_ascii=False)
 
 def build_sections(parsed: Dict[str, Any], candidate_id: int) -> Tuple[List[Tuple[int, str, Dict[str, Any], str]], List[str]]:
-    section_rows: List[Tuple[int, str, Dict[str, Any], str]] = []
+    sections: List[Tuple[int, str, Dict[str, Any], str]] = []
     texts: List[str] = []
 
-    def add(topic: str, item: Dict[str, Any]):
-        txt = compact_text_for_embedding(item, topic)
-        section_rows.append((candidate_id, topic, item, txt))
-        texts.append(txt)
+    profile = parsed.get("user_profile") or {}
+    if profile:
+        sections.append((candidate_id, "user_profile", profile, json.dumps(profile, ensure_ascii=False)))
+        texts.append(" ".join(str(v) for v in profile.values() if v not in (None, "")))
 
-    for edu in parsed.get("education", []) or []:
-        add("education", edu)
-    for proj in parsed.get("projects", []) or []:
-        add("projects", proj)
-    for exp in parsed.get("experience", []) or []:
-        add("experience", exp)
-    for sk in parsed.get("skills", []) or []:
-        add("skills", {"skill": sk})
+    for link in parsed.get("user_web_links", []):
+        sections.append((candidate_id, "user_web_links", link, json.dumps(link, ensure_ascii=False)))
+        texts.append(" ".join(filter(None, link.values())))
 
-    return section_rows, texts
+    address = parsed.get("address") or {}
+    if address:
+        sections.append((candidate_id, "address", address, json.dumps(address, ensure_ascii=False)))
+        texts.append(" ".join(filter(None, address.values())))
+
+    for bucket, label in [
+        ("education", "education"),
+        ("experience", "experience"),
+        ("projects", "projects"),
+        ("certifications", "certifications"),
+        ("user_skills", "user_skills"),
+    ]:
+        for item in parsed.get(bucket, []):
+            sections.append((candidate_id, label, item, json.dumps(item, ensure_ascii=False)))
+            texts.append(" ".join(str(v) for v in item.values() if v not in (None, "")))
+
+    return sections, texts
 
 
 if __name__ == "__main__":

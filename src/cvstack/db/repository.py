@@ -1,8 +1,8 @@
 from __future__ import annotations
 import json
 import logging
-from typing import Any, Dict, List, Tuple
-import psycopg
+from typing import Any, Dict, List, Optional, Tuple
+import psycopg   #psycopg allows your Python application to connect to a PostgreSQL database, send SQL queries, and get results back
 from pgvector.psycopg import register_vector
 from psycopg.types.json import Json
 from ..config import settings
@@ -26,15 +26,21 @@ class Repository:
         except Exception:
             pass
 
-    def insert_candidate(self, full_name: str | None, email: str | None, raw_text: str) -> int:
+    
+    def insert_candidate(self, full_name: Optional[str], email: Optional[str], raw_text: str) -> int:
         with self.conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO candidates (full_name, email, raw_text) VALUES (%s, %s, %s) RETURNING id",
+                """
+                INSERT INTO candidates (full_name, email, raw_text)
+                VALUES (%s, %s, %s)
+                RETURNING id
+                """,
                 (full_name, email, raw_text),
             )
-            cid = cur.fetchone()[0]
+            candidate_id = cur.fetchone()[0]
             self.conn.commit()
-            return cid
+            return candidate_id
+
 
     def insert_sections(self, section_rows: List[Tuple[int, str, Dict[str, Any], str]]) -> List[int]:
         ids: List[int] = []

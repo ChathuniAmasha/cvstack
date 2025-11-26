@@ -1,0 +1,291 @@
+<!-- api/static/index.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>CV Uploader • AI CV Filtering</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Tailwind (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Simple JSON tree styling */
+    details > summary { cursor: pointer; }
+    code { word-break: break-word; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div class="max-w-4xl mx-auto p-6">
+    <header class="mb-6">
+      <h1 class="text-2xl font-semibold">AI CV Filtering — Mini UI</h1>
+      <p class="text-sm text-gray-600">Upload a PDF CV and preview the JSON your API returns.</p>
+    </header>
+
+    <!-- API base input (handy if your API is not same-origin) -->
+    <div class="mb-4">
+      <label class="block text-sm font-medium mb-1" for="apiBase">API Base URL</label>
+      <input id="apiBase" type="text" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="e.g.  (empty for same origin)  or  http://localhost:8080">
+      <p class="text-xs text-gray-500 mt-1">Leave empty if this page is served by the same FastAPI instance. Otherwise set to something like <span class="mono">http://localhost:8080</span>.</p>
+    </div>
+
+    <!-- Upload card -->
+    <div
+      id="dropZone"
+      class="border-2 border-dashed border-gray-300 rounded-2xl bg-white p-8 flex flex-col items-center justify-center text-center hover:border-gray-400 transition"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-width="1.5" d="M12 16v-8m0 0l-3 3m3-3l3 3M6 20h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1M6 20a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h1" />
+      </svg>
+      <p class="text-sm text-gray-700 mb-2">Drag & drop a PDF here</p>
+      <p class="text-xs text-gray-500 mb-4">or</p>
+      <label class="inline-flex items-center px-4 py-2 rounded-xl bg-gray-900 text-white text-sm cursor-pointer hover:bg-black transition">
+        Choose PDF
+        <input id="fileInput" type="file" accept="application/pdf" class="hidden" />
+      </label>
+      <p class="text-[11px] text-gray-500 mt-3">Accepted: .pdf</p>
+    </div>
+
+    <!-- Action row -->
+    <div class="flex items-center gap-3 mt-4">
+      <button id="uploadBtn" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm disabled:opacity-50">Upload & Process</button>
+      <div id="status" class="text-sm text-gray-600"></div>
+      <div id="spinner" class="hidden animate-spin rounded-full h-5 w-5 border border-gray-300 border-t-gray-800"></div>
+    </div>
+
+    <!-- Error banner -->
+    <div id="errorBox" class="hidden mt-4 p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm"></div>
+
+    <!-- Results -->
+    <section id="results" class="hidden mt-6">
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-lg font-medium">Response JSON</h2>
+        <div class="flex gap-2">
+          <button id="copyBtn" class="px-3 py-1.5 rounded-lg border border-gray-300 text-sm">Copy</button>
+          <button id="downloadBtn" class="px-3 py-1.5 rounded-lg border border-gray-300 text-sm">Download</button>
+        </div>
+      </div>
+      <pre id="jsonRaw" class="hidden"></pre>
+      <div id="jsonTree" class="mono text-sm bg-white border border-gray-200 rounded-xl p-4 overflow-x-auto"></div>
+    </section>
+
+    <!-- Optional: quick tips / expected shape -->
+    <details class="mt-6 bg-white border border-gray-200 rounded-xl p-4">
+      <summary class="font-medium cursor-pointer">What does the backend return?</summary>
+      <p class="text-sm text-gray-700 mt-2">
+        This UI will render whatever JSON your <span class="mono">/ingest</span> returns. For your project it might look like:
+      </p>
+      <pre class="mono text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 overflow-x-auto">{
+  "candidate_id": "uuid-123",
+  "cv_text": "...",
+  "parsed": {
+    "candidate": {"full_name": "Jane Doe", "email": "jane@x.com"},
+    "education": [...],
+    "projects": [...],
+    "skills": [...]
+  },
+  "embedding_status": "stored"  // or similar field you return
+}</pre>
+    </details>
+  </div>
+
+  <script>
+    // ---- Config ----
+    // If you serve this page from the same FastAPI, leave API_BASE empty.
+    // Otherwise set it in the input field.
+    const apiBaseInput = document.getElementById('apiBase');
+
+    // ---- UI Elements ----
+    const dropZone   = document.getElementById('dropZone');
+    const fileInput  = document.getElementById('fileInput');
+    const uploadBtn  = document.getElementById('uploadBtn');
+    const statusEl   = document.getElementById('status');
+    const spinner    = document.getElementById('spinner');
+    const errorBox   = document.getElementById('errorBox');
+    const resultsSec = document.getElementById('results');
+    const jsonTree   = document.getElementById('jsonTree');
+    const jsonRaw    = document.getElementById('jsonRaw');
+    const copyBtn    = document.getElementById('copyBtn');
+    const downloadBtn= document.getElementById('downloadBtn');
+
+    let selectedFile = null;
+    let lastJSON = null;
+
+    // ---- Drag & Drop ----
+    ;['dragenter','dragover'].forEach(ev =>
+      dropZone.addEventListener(ev, e => {
+        e.preventDefault(); e.stopPropagation();
+        dropZone.classList.add('border-indigo-400');
+      })
+    );
+    ;['dragleave','drop'].forEach(ev =>
+      dropZone.addEventListener(ev, e => {
+        e.preventDefault(); e.stopPropagation();
+        dropZone.classList.remove('border-indigo-400');
+      })
+    );
+    dropZone.addEventListener('drop', (e) => {
+      const file = e.dataTransfer.files?.[0];
+      if (file) setFile(file);
+    });
+    dropZone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (file) setFile(file);
+    });
+
+    function setFile(file) {
+      if (file.type !== 'application/pdf') {
+        showError('Please select a PDF file.');
+        return;
+      }
+      selectedFile = file;
+      statusEl.textContent = `Selected: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
+      clearError();
+    }
+
+    // ---- Actions ----
+    uploadBtn.addEventListener('click', async () => {
+      if (!selectedFile) {
+        showError('Choose a PDF first.');
+        return;
+      }
+      await uploadFile(selectedFile);
+    });
+
+    async function uploadFile(file) {
+      setBusy(true);
+      clearError();
+      resultsSec.classList.add('hidden');
+      jsonTree.innerHTML = '';
+      jsonRaw.textContent = '';
+
+      try {
+        const API_BASE = apiBaseInput.value.trim(); //Reads the value from the input box
+        const url = (API_BASE ? API_BASE.replace(/\/+$/, '') : '') + '/ingest';
+
+        const fd = new FormData();  //Creates a 'FormData' object, like a digital envelope.
+        // IMPORTANT: match your backend parameter name. You previously used -F "file=@...".
+        fd.append('file', file, file.name); // Puts the file into the envelope and gives it the name 'file'.
+
+        const res = await fetch(url, { method: 'POST', body: fd }); // Sends the envelope to the URL using the 'POST' method.
+        const contentType = res.headers.get('content-type') || '';
+        
+
+        //This check fails (e.g., on a 500 error).
+        if (!res.ok) {
+          const txt = contentType.includes('application/json') ? JSON.stringify(await res.json(), null, 2) : await res.text();
+          throw new Error(`HTTP ${res.status}: ${txt}`);
+        }
+
+        // 9. Gets the JSON data from the response body and parses it
+        // into a JavaScript object.
+        const data = contentType.includes('application/json') ? await res.json() : { raw: await res.text() };
+        lastJSON = data;
+
+        // Render
+        renderJSONTree(data, jsonTree);
+        jsonRaw.textContent = JSON.stringify(data, null, 2);
+        resultsSec.classList.remove('hidden');
+        statusEl.textContent = 'Done.';
+      } catch (err) {
+        showError(err.message || String(err));
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    // ---- Helpers ----
+    function setBusy(b) {
+      uploadBtn.disabled = b;
+      spinner.classList.toggle('hidden', !b);
+      statusEl.textContent = b ? 'Uploading & processing…' : '';
+    }
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+    function clearError() {
+      errorBox.classList.add('hidden');
+      errorBox.textContent = '';
+    }
+
+    function renderJSONTree(obj, container) {
+      container.innerHTML = '';
+      container.appendChild(buildNode(obj));
+    }
+
+    function buildNode(value, key = null) {
+      const wrapper = document.createElement('div');
+
+      if (value !== null && typeof value === 'object') {
+        const isArray = Array.isArray(value);
+        const count = isArray ? value.length : Object.keys(value).length;
+        const summaryText = key !== null
+          ? `${escapeHTML(String(key))}: ${isArray ? 'Array' : 'Object'} (${count})`
+          : `${isArray ? 'Array' : 'Object'} (${count})`;
+
+        const details = document.createElement('details');
+        details.open = key === null; // root open by default
+
+        const summary = document.createElement('summary');
+        summary.className = 'font-medium';
+        summary.innerHTML = summaryText;
+        details.appendChild(summary);
+
+        const inner = document.createElement('div');
+        inner.className = 'pl-4 border-l border-gray-200 mt-2';
+
+        if (isArray) {
+          value.forEach((v, i) => inner.appendChild(buildNode(v, i)));
+        } else {
+          Object.entries(value).forEach(([k, v]) => inner.appendChild(buildNode(v, k)));
+        }
+
+        details.appendChild(inner);
+        wrapper.appendChild(details);
+      } else {
+        const line = document.createElement('div');
+        line.className = 'py-0.5';
+        const k = key !== null ? `<span class="text-gray-700">${escapeHTML(String(key))}</span>: ` : '';
+        const formatted = typeof value === 'string'
+          ? `"${escapeHTML(value)}"`
+          : `<span class="text-indigo-700">${escapeHTML(String(value))}</span>`;
+        line.innerHTML = `${k}<code>${formatted}</code>`;
+        wrapper.appendChild(line);
+      }
+      return wrapper;
+    }
+
+    function escapeHTML(s) {
+      return s.replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+    }
+
+    // Copy & Download
+    copyBtn.addEventListener('click', async () => {
+      try {
+        if (!lastJSON) return;
+        await navigator.clipboard.writeText(JSON.stringify(lastJSON, null, 2));
+        statusEl.textContent = 'Copied JSON to clipboard.';
+      } catch {
+        showError('Copy failed.');
+      }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      if (!lastJSON) return;
+      const blob = new Blob([JSON.stringify(lastJSON, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // Try to infer a nice filename:
+      const fname = (lastJSON?.candidate?.full_name || lastJSON?.candidate_id || 'response').toString().replace(/\s+/g, '_');
+      a.download = `${fname}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
