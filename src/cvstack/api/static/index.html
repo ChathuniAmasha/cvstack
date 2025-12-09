@@ -1,291 +1,455 @@
-<!-- api/static/index.html -->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>CV Uploader • AI CV Filtering</title>
+  <title>CVStack • AI Filtering</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Simple JSON tree styling */
     details > summary { cursor: pointer; }
     code { word-break: break-word; }
     .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
   </style>
 </head>
-<body class="bg-gray-50 text-gray-900">
-  <div class="max-w-4xl mx-auto p-6">
-    <header class="mb-6">
-      <h1 class="text-2xl font-semibold">AI CV Filtering — Mini UI</h1>
-      <p class="text-sm text-gray-600">Upload a PDF CV and preview the JSON your API returns.</p>
+<body class="bg-gray-50 text-gray-900 font-sans">
+  <div class="max-w-5xl mx-auto p-6">
+    
+    <header class="mb-8 flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">CVStack Dashboard</h1>
+        <p class="text-sm text-gray-500 mt-1">Upload CVs, manage skills, and rank candidates with AI.</p>
+      </div>
+      <div class="text-right hidden sm:block">
+        <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-semibold tracking-wide">SYSTEM ONLINE</span>
+      </div>
     </header>
 
-    <!-- API base input (handy if your API is not same-origin) -->
-    <div class="mb-4">
-      <label class="block text-sm font-medium mb-1" for="apiBase">API Base URL</label>
-      <input id="apiBase" type="text" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" placeholder="e.g.  (empty for same origin)  or  http://localhost:8080">
-      <p class="text-xs text-gray-500 mt-1">Leave empty if this page is served by the same FastAPI instance. Otherwise set to something like <span class="mono">http://localhost:8080</span>.</p>
+    <div class="mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm hidden">
+      <label class="block text-xs font-bold text-gray-500 uppercase tracking-wide mb-2" for="apiBase">API Base URL</label>
+      <input id="apiBase" type="text" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm bg-gray-50" placeholder="http://127.0.0.1:8080">
     </div>
 
-    <!-- Upload card -->
-    <div
-      id="dropZone"
-      class="border-2 border-dashed border-gray-300 rounded-2xl bg-white p-8 flex flex-col items-center justify-center text-center hover:border-gray-400 transition"
-    >
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-width="1.5" d="M12 16v-8m0 0l-3 3m3-3l3 3M6 20h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-1M6 20a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h1" />
-      </svg>
-      <p class="text-sm text-gray-700 mb-2">Drag & drop a PDF here</p>
-      <p class="text-xs text-gray-500 mb-4">or</p>
-      <label class="inline-flex items-center px-4 py-2 rounded-xl bg-gray-900 text-white text-sm cursor-pointer hover:bg-black transition">
-        Choose PDF
-        <input id="fileInput" type="file" accept="application/pdf" class="hidden" />
-      </label>
-      <p class="text-[11px] text-gray-500 mt-3">Accepted: .pdf</p>
-    </div>
-
-    <!-- Action row -->
-    <div class="flex items-center gap-3 mt-4">
-      <button id="uploadBtn" class="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm disabled:opacity-50">Upload & Process</button>
-      <div id="status" class="text-sm text-gray-600"></div>
-      <div id="spinner" class="hidden animate-spin rounded-full h-5 w-5 border border-gray-300 border-t-gray-800"></div>
-    </div>
-
-    <!-- Error banner -->
-    <div id="errorBox" class="hidden mt-4 p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm"></div>
-
-    <!-- Results -->
-    <section id="results" class="hidden mt-6">
-      <div class="flex items-center justify-between mb-2">
-        <h2 class="text-lg font-medium">Response JSON</h2>
-        <div class="flex gap-2">
-          <button id="copyBtn" class="px-3 py-1.5 rounded-lg border border-gray-300 text-sm">Copy</button>
-          <button id="downloadBtn" class="px-3 py-1.5 rounded-lg border border-gray-300 text-sm">Download</button>
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
+        <span class="bg-gray-900 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+        Upload CV (PDF/TXT)
+      </h2>
+      <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center gap-4">
+          <label class="flex-1 cursor-pointer group">
+            <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-xl px-6 py-8 text-center hover:border-indigo-500 hover:bg-indigo-50 transition">
+              <span class="text-sm text-gray-600 group-hover:text-indigo-600 font-medium" id="fileNameDisplay">Click or Drag PDF here</span>
+              <input id="fileInput" type="file" accept="application/pdf" class="hidden" />
+            </div>
+          </label>
+          <div class="flex flex-col gap-2">
+            <button id="uploadBtn" class="px-6 py-3 rounded-xl bg-indigo-600 text-white font-medium text-sm hover:bg-indigo-700 transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+              Upload & Extract
+            </button>
+          </div>
         </div>
+        
+        <div class="mt-4 flex items-center gap-3">
+            <div id="spinner" class="hidden animate-spin rounded-full h-5 w-5 border-2 border-indigo-600 border-t-transparent"></div>
+            <div id="status" class="text-sm font-medium text-gray-600"></div>
+        </div>
+        <div id="errorBox" class="hidden mt-3 p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm"></div>
       </div>
-      <pre id="jsonRaw" class="hidden"></pre>
-      <div id="jsonTree" class="mono text-sm bg-white border border-gray-200 rounded-xl p-4 overflow-x-auto"></div>
     </section>
 
-    <!-- Optional: quick tips / expected shape -->
-    <details class="mt-6 bg-white border border-gray-200 rounded-xl p-4">
-      <summary class="font-medium cursor-pointer">What does the backend return?</summary>
-      <p class="text-sm text-gray-700 mt-2">
-        This UI will render whatever JSON your <span class="mono">/ingest</span> returns. For your project it might look like:
-      </p>
-      <pre class="mono text-xs bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 overflow-x-auto">{
-  "candidate_id": "uuid-123",
-  "cv_text": "...",
-  "parsed": {
-    "candidate": {"full_name": "Jane Doe", "email": "jane@x.com"},
-    "education": [...],
-    "projects": [...],
-    "skills": [...]
-  },
-  "embedding_status": "stored"  // or similar field you return
-}</pre>
+    <section class="mb-8">
+      <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
+        <span class="bg-gray-900 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+        Upload Skill Catalog (JSON)
+      </h2>
+      <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+        <div class="flex items-center gap-3 mb-4">
+          <label class="inline-flex items-center px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 cursor-pointer shadow-sm transition">
+            Choose File
+            <input id="catalogFileInput" type="file" accept="application/json" class="hidden" />
+          </label>
+          <span id="catalogFileName" class="text-sm text-gray-500">No file chosen</span>
+        </div>
+
+        <button id="uploadCatalogBtn" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition shadow-sm disabled:opacity-50">
+          Upload & Index
+        </button>
+
+        <div id="catalogStatus" class="mt-3 text-sm text-gray-600"></div>
+        <div id="catalogError" class="hidden mt-2 p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm"></div>
+        
+        <div class="mt-6">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Stored Skills in Database</p>
+            <div id="skillTagsContainer" class="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 border border-gray-100 rounded-lg bg-gray-50">
+                <span class="text-xs text-gray-400 italic p-1">Loading skills from database...</span>
+            </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-lg font-semibold mb-3 flex items-center gap-2">
+        <span class="bg-gray-900 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
+        Search Candidates
+      </h2>
+      
+      <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+        <label class="block text-sm font-medium text-gray-900 mb-2">Select Search Mode</label>
+        
+        <div class="flex gap-2 mb-6">
+            <div class="relative flex-1">
+                <select id="skillSelect" class="w-full appearance-none rounded-xl border border-gray-300 bg-white px-4 py-3 pr-8 text-sm focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm">
+                    <option value="">Loading skills...</option>
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+            </div>
+            
+            <button id="searchSkillBtn" class="px-6 py-3 rounded-xl bg-indigo-600 text-white font-medium text-sm hover:bg-indigo-700 transition shadow-md min-w-[120px]">
+                Search
+            </button>
+        </div>
+
+        <div id="searchError" class="hidden mb-4 p-3 rounded-lg border border-red-200 bg-red-50 text-red-800 text-sm"></div>
+
+        <div id="searchResults" class="hidden">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-md font-bold text-gray-900">Matching Candidates</h3>
+                <span id="resultCount" class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-md"></span>
+            </div>
+            
+            <div class="overflow-x-auto border border-gray-200 rounded-xl">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+                        <tr>
+                            <th class="px-6 py-3 font-semibold">#</th>
+                            <th class="px-6 py-3 font-semibold">Name</th>
+                            <th class="px-6 py-3 font-semibold">Email</th>
+                            <th class="px-6 py-3 font-semibold w-1/3">Matched Skills</th>
+                            <th class="px-6 py-3 font-semibold text-right">Match Score</th>
+                        </tr>
+                    </thead>
+                    <tbody id="searchResultsBody" class="divide-y divide-gray-100 bg-white">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+      </div>
+    </section>
+
+    <details class="mb-10">
+        <summary class="text-xs text-gray-400 cursor-pointer hover:text-gray-600">Debug: View Raw API Response</summary>
+        <pre id="jsonRaw" class="mt-2 p-4 bg-gray-900 text-green-400 rounded-xl text-xs overflow-x-auto mono"></pre>
     </details>
+
   </div>
 
   <script>
-    // ---- Config ----
-    // If you serve this page from the same FastAPI, leave API_BASE empty.
-    // Otherwise set it in the input field.
-    const apiBaseInput = document.getElementById('apiBase');
+    // --- Configuration ---
+    const getApiBase = () => {
+        const val = document.getElementById('apiBase').value.trim();
+        return val ? val.replace(/\/+$/, '') : 'http://127.0.0.1:8080';
+    };
 
-    // ---- UI Elements ----
-    const dropZone   = document.getElementById('dropZone');
-    const fileInput  = document.getElementById('fileInput');
-    const uploadBtn  = document.getElementById('uploadBtn');
-    const statusEl   = document.getElementById('status');
-    const spinner    = document.getElementById('spinner');
-    const errorBox   = document.getElementById('errorBox');
-    const resultsSec = document.getElementById('results');
-    const jsonTree   = document.getElementById('jsonTree');
-    const jsonRaw    = document.getElementById('jsonRaw');
-    const copyBtn    = document.getElementById('copyBtn');
-    const downloadBtn= document.getElementById('downloadBtn');
+    // --- DOM Elements ---
+    const fileInput = document.getElementById('fileInput');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const statusEl = document.getElementById('status');
+    const spinner = document.getElementById('spinner');
+    const errorBox = document.getElementById('errorBox');
+    const jsonRaw = document.getElementById('jsonRaw');
 
+    // --- 1. CV UPLOAD LOGIC ---
     let selectedFile = null;
-    let lastJSON = null;
 
-    // ---- Drag & Drop ----
-    ;['dragenter','dragover'].forEach(ev =>
-      dropZone.addEventListener(ev, e => {
-        e.preventDefault(); e.stopPropagation();
-        dropZone.classList.add('border-indigo-400');
-      })
-    );
-    ;['dragleave','drop'].forEach(ev =>
-      dropZone.addEventListener(ev, e => {
-        e.preventDefault(); e.stopPropagation();
-        dropZone.classList.remove('border-indigo-400');
-      })
-    );
-    dropZone.addEventListener('drop', (e) => {
-      const file = e.dataTransfer.files?.[0];
-      if (file) setFile(file);
-    });
-    dropZone.addEventListener('click', () => fileInput.click());
+    document.getElementById('dropZone').addEventListener('click', () => fileInput.click());
+    
     fileInput.addEventListener('change', (e) => {
-      const file = e.target.files?.[0];
-      if (file) setFile(file);
+        const file = e.target.files?.[0];
+        if (file) {
+            selectedFile = file;
+            fileNameDisplay.textContent = file.name;
+            statusEl.textContent = "";
+            errorBox.classList.add('hidden');
+        }
     });
 
-    function setFile(file) {
-      if (file.type !== 'application/pdf') {
-        showError('Please select a PDF file.');
-        return;
-      }
-      selectedFile = file;
-      statusEl.textContent = `Selected: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
-      clearError();
-    }
-
-    // ---- Actions ----
     uploadBtn.addEventListener('click', async () => {
-      if (!selectedFile) {
-        showError('Choose a PDF first.');
-        return;
-      }
-      await uploadFile(selectedFile);
-    });
-
-    async function uploadFile(file) {
-      setBusy(true);
-      clearError();
-      resultsSec.classList.add('hidden');
-      jsonTree.innerHTML = '';
-      jsonRaw.textContent = '';
-
-      try {
-        const API_BASE = apiBaseInput.value.trim(); //Reads the value from the input box
-        const url = (API_BASE ? API_BASE.replace(/\/+$/, '') : '') + '/ingest';
-
-        const fd = new FormData();  //Creates a 'FormData' object, like a digital envelope.
-        // IMPORTANT: match your backend parameter name. You previously used -F "file=@...".
-        fd.append('file', file, file.name); // Puts the file into the envelope and gives it the name 'file'.
-
-        const res = await fetch(url, { method: 'POST', body: fd }); // Sends the envelope to the URL using the 'POST' method.
-        const contentType = res.headers.get('content-type') || '';
-        
-
-        //This check fails (e.g., on a 500 error).
-        if (!res.ok) {
-          const txt = contentType.includes('application/json') ? JSON.stringify(await res.json(), null, 2) : await res.text();
-          throw new Error(`HTTP ${res.status}: ${txt}`);
+        if (!selectedFile) {
+            showError("Please select a PDF file first.");
+            return;
         }
 
-        // 9. Gets the JSON data from the response body and parses it
-        // into a JavaScript object.
-        const data = contentType.includes('application/json') ? await res.json() : { raw: await res.text() };
-        lastJSON = data;
+        setBusy(true);
+        errorBox.classList.add('hidden');
+        
+        try {
+            const fd = new FormData();
+            fd.append('file', selectedFile);
 
-        // Render
-        renderJSONTree(data, jsonTree);
-        jsonRaw.textContent = JSON.stringify(data, null, 2);
-        resultsSec.classList.remove('hidden');
-        statusEl.textContent = 'Done.';
-      } catch (err) {
-        showError(err.message || String(err));
-      } finally {
-        setBusy(false);
-      }
+            const res = await fetch(`${getApiBase()}/ingest`, {
+                method: 'POST',
+                body: fd
+            });
+
+            if (!res.ok) {
+                const txt = await res.text();
+                try {
+                    const errJson = JSON.parse(txt);
+                    throw new Error(errJson.detail || txt);
+                } catch {
+                    throw new Error(`Server Error: ${txt}`);
+                }
+            }
+
+            const data = await res.json();
+            statusEl.textContent = "Upload & Extraction Successful!";
+            statusEl.className = "text-sm font-medium text-green-600";
+            jsonRaw.textContent = JSON.stringify(data, null, 2);
+
+        } catch (err) {
+            showError(err.message);
+        } finally {
+            setBusy(false);
+        }
+    });
+
+    // --- 2. SKILL CATALOG LOGIC ---
+    const catalogInput = document.getElementById('catalogFileInput');
+    const uploadCatalogBtn = document.getElementById('uploadCatalogBtn');
+    const catalogStatus = document.getElementById('catalogStatus');
+    const catalogError = document.getElementById('catalogError');
+    const skillSelect = document.getElementById('skillSelect');
+    const skillTagsContainer = document.getElementById('skillTagsContainer');
+
+    let selectedCatalog = null;
+
+    catalogInput.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            selectedCatalog = file;
+            document.getElementById('catalogFileName').textContent = file.name;
+            catalogError.classList.add('hidden');
+        }
+    });
+
+    uploadCatalogBtn.addEventListener('click', async () => {
+        if (!selectedCatalog) {
+            catalogError.textContent = "Select a JSON file first.";
+            catalogError.classList.remove('hidden');
+            return;
+        }
+
+        uploadCatalogBtn.disabled = true;
+        uploadCatalogBtn.textContent = "Uploading...";
+        catalogStatus.textContent = "";
+
+        try {
+            const fd = new FormData();
+            fd.append('file', selectedCatalog);
+
+            const res = await fetch(`${getApiBase()}/skills/catalog`, { method: 'POST', body: fd });
+            
+            if (!res.ok) throw new Error(await res.text());
+
+            const data = await res.json();
+            catalogStatus.textContent = "Successfully uploaded catalog!";
+            catalogStatus.className = "mt-3 text-sm font-medium text-green-600";
+            
+            // Reload dropdown and tags
+            await loadSkills();
+
+        } catch (err) {
+            catalogError.textContent = err.message;
+            catalogError.classList.remove('hidden');
+        } finally {
+            uploadCatalogBtn.disabled = false;
+            uploadCatalogBtn.textContent = "Upload & Index";
+        }
+    });
+
+    // --- FETCH & DISPLAY SKILLS (Populates Tags + Unified Dropdown) ---
+    async function loadSkills() {
+        console.log("Fetching skills...");
+        skillTagsContainer.innerHTML = '<span class="text-xs text-gray-400 italic">Loading...</span>';
+        
+        try {
+            const res = await fetch(`${getApiBase()}/skills/catalog/list`);
+            if (!res.ok) {
+                console.warn("Could not fetch skills.");
+                skillSelect.innerHTML = '<option value="">Failed to load skills</option>';
+                skillTagsContainer.innerHTML = '<span class="text-xs text-red-400">Error loading skills</span>';
+                return;
+            }
+
+            const data = await res.json();
+            const skills = Array.isArray(data) ? data : (data.skills || []);
+
+            console.log(`Loaded ${skills.length} skills.`);
+
+            // 1. Populate Dropdown with Special "Match All" Option
+            skillSelect.innerHTML = '';
+            
+            // Default placeholder
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = "";
+            defaultOpt.text = "-- Select a Search Mode --";
+            skillSelect.appendChild(defaultOpt);
+
+            // Special Option: Match All
+            if (skills.length > 0) {
+                const allOpt = document.createElement('option');
+                allOpt.value = "ALL_CATALOG_MATCH"; 
+                allOpt.text = "★ Match Against Full Catalog (All Skills)";
+                allOpt.style.fontWeight = "bold";
+                // Style hack for standard select
+                skillSelect.appendChild(allOpt);
+
+                const sep = document.createElement('option');
+                sep.disabled = true;
+                sep.text = "──────────────";
+                skillSelect.appendChild(sep);
+            }
+
+            // Individual Skills
+            skills.forEach(skill => {
+                const opt = document.createElement('option');
+                opt.value = skill; 
+                opt.text = skill;
+                skillSelect.appendChild(opt);
+            });
+
+            // 2. Populate Blue Tags for preview
+            if (skills.length === 0) {
+                skillTagsContainer.innerHTML = '<span class="text-xs text-gray-400">No skills in database. Upload a catalog.</span>';
+            } else {
+                skillTagsContainer.innerHTML = '';
+                skills.forEach(skill => {
+                    const tag = document.createElement('span');
+                    tag.className = "px-2 py-1 bg-indigo-50 text-indigo-700 text-xs rounded-md border border-indigo-100";
+                    tag.textContent = skill;
+                    skillTagsContainer.appendChild(tag);
+                });
+            }
+
+        } catch (err) {
+            console.error(err);
+        }
     }
 
-    // ---- Helpers ----
+    // --- 3. UNIFIED SEARCH LOGIC ---
+    const searchSkillBtn = document.getElementById('searchSkillBtn');
+    const searchResults = document.getElementById('searchResults');
+    const searchResultsBody = document.getElementById('searchResultsBody');
+    const searchError = document.getElementById('searchError');
+    const resultCount = document.getElementById('resultCount');
+
+    searchSkillBtn.addEventListener('click', async () => {
+        const selection = skillSelect.value;
+        
+        if (!selection) {
+            searchError.textContent = "Please select an option from the dropdown.";
+            searchError.classList.remove('hidden');
+            return;
+        }
+
+        // Logic Switch:
+        // If "ALL_CATALOG_MATCH" -> Call /search/catalog (Total Score)
+        // If Specific Skill      -> Call /search/catalog/skill (Single)
+        
+        let url, payload;
+
+        if (selection === "ALL_CATALOG_MATCH") {
+            url = `${getApiBase()}/search/catalog`;
+            payload = { limit: 50 };
+        } else {
+            url = `${getApiBase()}/search/catalog/skill`;
+            payload = { skill: selection, limit: 50 };
+        }
+
+        searchError.classList.add('hidden');
+        searchResults.classList.add('hidden');
+        searchResultsBody.innerHTML = '';
+        searchSkillBtn.disabled = true;
+        searchSkillBtn.textContent = "Searching...";
+
+        try {
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) throw new Error(await res.text());
+
+            const data = await res.json();
+            const results = data.results || [];
+            
+            resultCount.textContent = `Found ${results.length}`;
+
+            if (results.length === 0) {
+                searchError.textContent = "No candidates found.";
+                searchError.classList.remove('hidden');
+                return;
+            }
+
+            // Render Rows
+            results.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-gray-50 transition border-b border-gray-100";
+                
+                // Format skills as pills
+                let skillsHtml = '<span class="text-gray-400 italic text-xs">None</span>';
+                if (row.matched_skills && Array.isArray(row.matched_skills) && row.matched_skills.length > 0) {
+                    skillsHtml = row.matched_skills.map(s => 
+                        `<span class="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full mr-1 mb-1">${s}</span>`
+                    ).join('');
+                }
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4 text-gray-500">${index + 1}</td>
+                    <td class="px-6 py-4 font-medium text-gray-900">${row.name || row.full_name || 'Unknown'}</td>
+                    <td class="px-6 py-4 text-gray-600">${row.email || '-'}</td>
+                    <td class="px-6 py-4">${skillsHtml}</td>
+                    <td class="px-6 py-4 text-right font-bold text-gray-900">${row.match_score !== undefined ? row.match_score : '-'}</td>
+                `;
+                searchResultsBody.appendChild(tr);
+            });
+
+            searchResults.classList.remove('hidden');
+
+        } catch (err) {
+            searchError.textContent = err.message || "Search failed";
+            searchError.classList.remove('hidden');
+        } finally {
+            searchSkillBtn.disabled = false;
+            searchSkillBtn.textContent = "Search";
+        }
+    });
+
+    // --- UTILS ---
     function setBusy(b) {
-      uploadBtn.disabled = b;
-      spinner.classList.toggle('hidden', !b);
-      statusEl.textContent = b ? 'Uploading & processing…' : '';
+        uploadBtn.disabled = b;
+        if(b) {
+            spinner.classList.remove('hidden');
+            statusEl.textContent = "Processing...";
+        } else {
+            spinner.classList.add('hidden');
+        }
     }
 
     function showError(msg) {
-      errorBox.textContent = msg;
-      errorBox.classList.remove('hidden');
-    }
-    function clearError() {
-      errorBox.classList.add('hidden');
-      errorBox.textContent = '';
+        errorBox.textContent = msg;
+        errorBox.classList.remove('hidden');
+        statusEl.textContent = "";
+        spinner.classList.add('hidden');
     }
 
-    function renderJSONTree(obj, container) {
-      container.innerHTML = '';
-      container.appendChild(buildNode(obj));
-    }
+    // --- INIT ---
+    document.addEventListener('DOMContentLoaded', loadSkills);
 
-    function buildNode(value, key = null) {
-      const wrapper = document.createElement('div');
-
-      if (value !== null && typeof value === 'object') {
-        const isArray = Array.isArray(value);
-        const count = isArray ? value.length : Object.keys(value).length;
-        const summaryText = key !== null
-          ? `${escapeHTML(String(key))}: ${isArray ? 'Array' : 'Object'} (${count})`
-          : `${isArray ? 'Array' : 'Object'} (${count})`;
-
-        const details = document.createElement('details');
-        details.open = key === null; // root open by default
-
-        const summary = document.createElement('summary');
-        summary.className = 'font-medium';
-        summary.innerHTML = summaryText;
-        details.appendChild(summary);
-
-        const inner = document.createElement('div');
-        inner.className = 'pl-4 border-l border-gray-200 mt-2';
-
-        if (isArray) {
-          value.forEach((v, i) => inner.appendChild(buildNode(v, i)));
-        } else {
-          Object.entries(value).forEach(([k, v]) => inner.appendChild(buildNode(v, k)));
-        }
-
-        details.appendChild(inner);
-        wrapper.appendChild(details);
-      } else {
-        const line = document.createElement('div');
-        line.className = 'py-0.5';
-        const k = key !== null ? `<span class="text-gray-700">${escapeHTML(String(key))}</span>: ` : '';
-        const formatted = typeof value === 'string'
-          ? `"${escapeHTML(value)}"`
-          : `<span class="text-indigo-700">${escapeHTML(String(value))}</span>`;
-        line.innerHTML = `${k}<code>${formatted}</code>`;
-        wrapper.appendChild(line);
-      }
-      return wrapper;
-    }
-
-    function escapeHTML(s) {
-      return s.replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-    }
-
-    // Copy & Download
-    copyBtn.addEventListener('click', async () => {
-      try {
-        if (!lastJSON) return;
-        await navigator.clipboard.writeText(JSON.stringify(lastJSON, null, 2));
-        statusEl.textContent = 'Copied JSON to clipboard.';
-      } catch {
-        showError('Copy failed.');
-      }
-    });
-
-    downloadBtn.addEventListener('click', () => {
-      if (!lastJSON) return;
-      const blob = new Blob([JSON.stringify(lastJSON, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      // Try to infer a nice filename:
-      const fname = (lastJSON?.candidate?.full_name || lastJSON?.candidate_id || 'response').toString().replace(/\s+/g, '_');
-      a.download = `${fname}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    });
   </script>
 </body>
 </html>

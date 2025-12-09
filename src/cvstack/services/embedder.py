@@ -1,56 +1,54 @@
-from __future__ import annotations
-from typing import List
+import logging
 import google.generativeai as genai
+from typing import List
 from ..config import settings
 
+log = logging.getLogger(__name__)
 
 class Embedder:
-    def __init__(self) -> None:                                                   #initialize the new object by setting up its initial 
-                                                                                #properties based on values from a settings object
-        if settings.gemini_api_key and not settings.skip_embedding:
-            genai.configure(api_key=settings.gemini_api_key)
-        self.model_name = settings.embedding_model
-        self.dim = settings.embedding_dim
-        self.skip = settings.skip_embedding or not settings.gemini_api_key
-        print("Using embedding model:", settings.embedding_model)
-
-
+    def __init__(self):
+        # Ensure API Key is present
+        if not settings.gemini_api_key:
+            raise RuntimeError("GEMINI_API_KEY not set")
+        
+        genai.configure(api_key=settings.gemini_api_key)
+        self.model = "models/text-embedding-004" 
 
     def embed(self, texts: List[str]) -> List[List[float]]:
-        if self.skip:
-            return [[0.0] * self.dim for _ in texts]
+        """
+        Embeds a list of texts using Gemini.
+        CRITICAL: Filters out empty strings to prevent API errors.
+        """
+        # 1. Clean inputs: Remove newlines, strip whitespace, remove empty strings
+        clean_texts = [
+            t.replace("\n", " ").strip() 
+            for t in texts 
+            if t and t.strip() # <--- This check prevents the error
+        ]
         
-        print(f"Embedding {len(texts)} texts...")
-        vectors: List[List[float]] = []
-        for t in texts:
-            r = genai.embed_content(model=self.model_name, content=t) #Call the Google AI (genai) library's embed_content function
-            print(f"Got embedding response type: {type(r)}")          #store the given output r as response.
+        # 2. Safety Valve: If nothing is left, return empty list immediately
+        if not clean_texts:
+            log.warning("Embedder received empty or whitespace-only text list. Skipping API call.")
+            return []
 
-        vectors: List[List[float]] = []
-        for t in texts:
-            r = genai.embed_content(model=self.model_name, content=t)
-            emb = None
+        try:
+            log.info(f"Generating Gemini embeddings for {len(clean_texts)} texts...")
             
-            if isinstance(r, dict):
-                e = r.get("embedding")
-                if isinstance(e, dict):                               #checks whether the response is a dictionary
-                    emb = e.get("values") or e.get("vector") or e.get("data")  #Look for the actual numbers inside that dictionary with keys like 'values', 'vector', or 'data'
-                elif isinstance(e, list):                                      #Or, is the value of 'embedding' just a list?"
-                    emb = e
-                
-                if emb is None and isinstance(r.get("data"), list) and r["data"]:
-                    first = r["data"][0]
-                    if isinstance(first, dict) and "embedding" in first:
-                        emb = first.get("embedding")
-                    elif isinstance(first, list):
-                        emb = first
-            
-            elif isinstance(r, list):
-                emb = r
+            # 3. Call Gemini API
+            result = genai.embed_content(
+                model=self.model,
+                content=clean_texts,
+                task_type="retrieval_document"
+            )
 
-            if emb is None:
-                raise RuntimeError(f"Unexpected embedding response: {type(r)} {str(r)[:200]}")
-            
-            vectors.append(emb)
-            
-        return vectors
+            # 4. Return results
+            if 'embedding' in result:
+                return result['embedding']
+            else:
+                log.error("Gemini response missing 'embedding' key")
+                return []
+
+        except Exception as e:
+            log.error(f"Gemini embedding failed: {e}")
+            # Do not crash the app, just return empty so the process can continue
+            return []

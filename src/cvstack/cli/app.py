@@ -1,118 +1,105 @@
 from __future__ import annotations
-import argparse
 import json
 import logging
-import re
 from typing import Any, Dict, List, Tuple
-from pypdf import PdfReader
 
-from ..logging_conf import configure_logging
-from ..services.extractor import CVExtractor
-from ..services.embedder import Embedder
 from ..db.repository import Repository
 
-# Note: The functions read_pdf_text, compact_text_for_embedding, 
-# and build_sections (from your previous snippets) should be here.
-# ...existing imports...
-def read_pdf_text(pdf_path: str) -> str:
-    reader = PdfReader(pdf_path)
-    return "\n".join(page.extract_text() or "" for page in reader.pages)
+
+log = logging.getLogger(__name__)
 
 
-def main() -> None:
-    configure_logging()
-    log = logging.getLogger("cvstack.cli")
+def sanitize_text(text: str) -> str:
+    """Remove null bytes and other problematic characters from text"""
+    if not text:
+        return ""
+    cleaned = text.replace("\x00", "")
+    cleaned = "".join(char if ord(char) >= 32 else " " for char in cleaned)
+    return cleaned.strip()
 
 
-    #Command line parsing is the process a program uses to interpret and understand the input provided 
-    # by a user (or another program) when it is run from a shell or terminal.
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--cv", help="Path to CV PDF or TXT")
-    parser.add_argument("--text", help="Raw CV text (overrides --cv)")
-    parser.add_argument("--no-extract", action="store_true", help="Don't call LLM; use simple heuristics")
-    args = parser.parse_args()  #reads the arguments passed by the user from the command line, processes them according to the
-                                #definitions above, and stores them as attributes in the args object
-
-    # Load CV text
-    if args.text:
-        cv_text = args.text
-    elif args.cv:
-        if args.cv.lower().endswith(".pdf"):
-            cv_text = read_pdf_text(args.cv)
+def sanitize_dict(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively sanitize all text in a dictionary"""
+    result = {}
+    for key, value in data.items():
+        if isinstance(value, str):
+            result[key] = sanitize_text(value)
+        elif isinstance(value, dict):
+            result[key] = sanitize_dict(value)
+        elif isinstance(value, list):
+            result[key] = [
+                sanitize_dict(item) if isinstance(item, dict)
+                else sanitize_text(item) if isinstance(item, str)
+                else item
+                for item in value
+            ]
         else:
-            with open(args.cv, "r", encoding="utf-8") as f:
-                cv_text = f.read()
-    else:
-        raise SystemExit("Provide --cv /path/to/file or --text 'CV text'")
-
-    # Parse
-    if args.no_extract:
-        parsed: Dict[str, Any] = {
-            "candidate": {"full_name": cv_text.splitlines()[0] if cv_text else None},
-            "education": [],
-            "projects": [],
-            "skills": [s.strip() for s in re.findall(r"Skills:\s*(.*)", cv_text, flags=re.IGNORECASE)] or [],
-            "experience": [{"summary": cv_text}] if "Experience:" in cv_text else []
-        }
-    else:
-        parsed = CVExtractor().extract(cv_text)
-
-    repo = Repository()
-    try:
-        # Insert candidate first to get ID
-        cand_name = parsed.get("candidate", {}).get("full_name")
-        cand_email = parsed.get("candidate", {}).get("email")
-        candidate_id = repo.insert_candidate(cand_name, cand_email, cv_text)
-
-        # Build sections + embed
-        section_rows, texts = build_sections(parsed, candidate_id)
-        embeddings = Embedder().embed(texts)
-
-        # Persist sections + vectors
-        section_ids = repo.insert_sections(section_rows)
-        repo.insert_vectors(section_ids, embeddings)
-
-        print(json.dumps({"candidate_id": candidate_id, "parsed_sample": parsed}, ensure_ascii=False, indent=2))
-    finally:
-        repo.close()
-
-# add at top with other imports
-from typing import Any, Dict, List, Tuple
-import json
+            result[key] = value
+    return result
 
 
 def build_sections(parsed: Dict[str, Any], candidate_id: int) -> Tuple[List[Tuple[int, str, Dict[str, Any], str]], List[str]]:
-    sections: List[Tuple[int, str, Dict[str, Any], str]] = []
-    texts: List[str] = []
+    """
+    Convert parsed CV data into database rows for the sections table.
+    Returns:
+        - section_rows: List of tuples (candidate_id, topic, payload, text_for_embedding)
+        - texts: List of text strings for embedding
+    """
+    rows = []
+    texts = []
 
-    profile = parsed.get("user_profile") or {}
+    # Sanitize all text in parsed data
+    parsed = sanitize_dict(parsed)
+
+    # 1. User Profile
+    profile = parsed.get("user_profile", {})
     if profile:
-        sections.append((candidate_id, "user_profile", profile, json.dumps(profile, ensure_ascii=False)))
-        texts.append(" ".join(str(v) for v in profile.values() if v not in (None, "")))
+        text = " ".join(str(v) for v in profile.values() if v)
+        rows.append((candidate_id, "user_profile", profile, text))
+        texts.append(text)
 
+    # 2. User Web Links
     for link in parsed.get("user_web_links", []):
-        sections.append((candidate_id, "user_web_links", link, json.dumps(link, ensure_ascii=False)))
-        texts.append(" ".join(filter(None, link.values())))
+        text = f"{link.get('platform', '')} {link.get('url', '')}"
+        rows.append((candidate_id, "user_web_links", link, text))
+        texts.append(text)
 
-    address = parsed.get("address") or {}
+    # 3. Address
+    address = parsed.get("address", {})
     if address:
-        sections.append((candidate_id, "address", address, json.dumps(address, ensure_ascii=False)))
-        texts.append(" ".join(filter(None, address.values())))
+        text = " ".join(str(v) for v in address.values() if v)
+        rows.append((candidate_id, "address", address, text))
+        texts.append(text)
 
-    for bucket, label in [
-        ("education", "education"),
-        ("experience", "experience"),
-        ("projects", "projects"),
-        ("certifications", "certifications"),
-        ("user_skills", "user_skills"),
-    ]:
-        for item in parsed.get(bucket, []):
-            sections.append((candidate_id, label, item, json.dumps(item, ensure_ascii=False)))
-            texts.append(" ".join(str(v) for v in item.values() if v not in (None, "")))
+    # 4. Education
+    for edu in parsed.get("education", []):
+        text = f"{edu.get('degree', '')} {edu.get('institution', '')} {edu.get('field_of_study', '')}"
+        rows.append((candidate_id, "education", edu, text))
+        texts.append(text)
 
-    return sections, texts
+    # 5. Certifications
+    for cert in parsed.get("certifications", []):
+        text = f"{cert.get('name', '')} {cert.get('issuing_organization', '')}"
+        rows.append((candidate_id, "certifications", cert, text))
+        texts.append(text)
 
+    # 6. Experience
+    for exp in parsed.get("experience", []):
+        text = f"{exp.get('job_title', '')} {exp.get('company', '')} {exp.get('description', '')}"
+        rows.append((candidate_id, "experience", exp, text))
+        texts.append(text)
 
-if __name__ == "__main__":
-    main()
+    # 7. Projects
+    for proj in parsed.get("projects", []):
+        text = f"{proj.get('name', '')} {proj.get('description', '')}"
+        rows.append((candidate_id, "projects", proj, text))
+        texts.append(text)
+
+    # 8. User Skills
+    for skill in parsed.get("user_skills", []):
+        text = f"{skill.get('skill_name', '')} {skill.get('proficiency_level', '')}"
+        rows.append((candidate_id, "user_skills", skill, text))
+        texts.append(text)
+
+    return rows, texts
+
