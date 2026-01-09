@@ -28,6 +28,17 @@ embedding VECTOR(768) NOT NULL
 );
 
 
+-- Skill catalog table for storing skill vectors
+CREATE TABLE IF NOT EXISTS skill_vectors (
+id BIGSERIAL PRIMARY KEY,
+skill_name TEXT NOT NULL UNIQUE,
+skill_description TEXT,
+weight INTEGER DEFAULT 5,
+embedding VECTOR(768) NOT NULL,
+created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS sections_topic_idx ON sections(topic);
 CREATE INDEX IF NOT EXISTS sections_cand_idx ON sections(candidate_id);
@@ -36,3 +47,8 @@ CREATE INDEX IF NOT EXISTS sections_payload_gin ON sections USING GIN (payload);
 
 CREATE INDEX IF NOT EXISTS section_vectors_embed_idx
 ON section_vectors USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+
+CREATE INDEX IF NOT EXISTS skill_vectors_embed_idx
+ON skill_vectors USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
+
+CREATE INDEX IF NOT EXISTS skill_vectors_name_idx ON skill_vectors(skill_name);

@@ -173,6 +173,13 @@ async def ingest(file: UploadFile = File(...)) -> Dict[str, Any]:
         extractor = CVExtractor()
         parsed = extractor.extract(text)
         
+        # Explicitly save to Excel (backup in case internal save fails)
+        try:
+            excel_path = extractor.save_to_csv(parsed)
+            logger.info(f"[INGEST] Excel saved to: {excel_path}")
+        except Exception as excel_err:
+            logger.warning(f"[INGEST] Failed to save Excel: {excel_err}")
+        
         # Sanitization
         profile = parsed.get("user_profile") or {}
         # ... (Simplified sanitization for brevity, your original logic fits here) ...

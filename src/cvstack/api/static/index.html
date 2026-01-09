@@ -149,7 +149,8 @@
     // --- Configuration ---
     const getApiBase = () => {
         const val = document.getElementById('apiBase').value.trim();
-        return val ? val.replace(/\/+$/, '') : 'http://127.0.0.1:8080';
+        // Use relative URL (empty string) by default so it works on any port
+        return val ? val.replace(/\/+$/, '') : '';
     };
 
     // --- DOM Elements ---

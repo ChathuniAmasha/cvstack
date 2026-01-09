@@ -60,7 +60,7 @@ def build_sections(parsed: Dict[str, Any], candidate_id: int) -> Tuple[List[Tupl
 
     # 2. User Web Links
     for link in parsed.get("user_web_links", []):
-        text = f"{link.get('platform', '')} {link.get('url', '')}"
+        text = f"{link.get('website_type', '')} {link.get('web_link', '')}"
         rows.append((candidate_id, "user_web_links", link, text))
         texts.append(text)
 
@@ -73,31 +73,31 @@ def build_sections(parsed: Dict[str, Any], candidate_id: int) -> Tuple[List[Tupl
 
     # 4. Education
     for edu in parsed.get("education", []):
-        text = f"{edu.get('degree', '')} {edu.get('institution', '')} {edu.get('field_of_study', '')}"
+        text = f"{edu.get('degree', '')} {edu.get('institution', '')} {edu.get('field', '')}"
         rows.append((candidate_id, "education", edu, text))
         texts.append(text)
 
     # 5. Certifications
     for cert in parsed.get("certifications", []):
-        text = f"{cert.get('name', '')} {cert.get('issuing_organization', '')}"
+        text = f"{cert.get('name', '')} {cert.get('issuer', '')}"
         rows.append((candidate_id, "certifications", cert, text))
         texts.append(text)
 
     # 6. Experience
     for exp in parsed.get("experience", []):
-        text = f"{exp.get('job_title', '')} {exp.get('company', '')} {exp.get('description', '')}"
+        text = f"{exp.get('role', '')} {exp.get('company', '')} {exp.get('summary', '')}"
         rows.append((candidate_id, "experience", exp, text))
         texts.append(text)
 
     # 7. Projects
     for proj in parsed.get("projects", []):
-        text = f"{proj.get('name', '')} {proj.get('description', '')}"
+        text = f"{proj.get('title', '')} {proj.get('summary', '')}"
         rows.append((candidate_id, "projects", proj, text))
         texts.append(text)
 
     # 8. User Skills
     for skill in parsed.get("user_skills", []):
-        text = f"{skill.get('skill_name', '')} {skill.get('proficiency_level', '')}"
+        text = f"{skill.get('skill', '')} {skill.get('level_of_skill', '')} rating:{skill.get('system_rating', '')}"
         rows.append((candidate_id, "user_skills", skill, text))
         texts.append(text)
 

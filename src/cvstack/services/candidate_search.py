@@ -7,39 +7,87 @@ from ..services.embedder import Embedder
 
 log = logging.getLogger(__name__)
 
-
 class SearchService:
     def __init__(self) -> None:
         self.repo = Repository()
         self.embedder = Embedder()
 
-    def index_catalog(self, skills: List[Dict[str, str]]) -> None:
+    def index_catalog(self, catalog_data: Any) -> None:
         """
-        1. Receives raw JSON list: [{'name': 'Python', 'description': '...'}]
-        2. Creates text for embedding: "Python: ..."
-        3. Generates vectors (using Gemini or OpenAI)
-        4. Saves to DB
+        Handles both:
+        1. OLD Format: [{"name": "Python"}, ...]
+        2. NEW Format: [{"category": "Essential", "skills": [...]}, ...]
         """
-        if not skills:
+        if not catalog_data:
             return
 
-        # Prepare text for embedding (Name + Description gives better context)
-        texts_to_embed = [
-            f"{s['name']}: {s.get('description', '')}" 
-            for s in skills
-        ]
-        
-        log.info(f"Generating embeddings for {len(texts_to_embed)} skills...")
-        
-        # Embedder returns a list of vectors (List[List[float]])
+        flat_skills = []
+        texts_to_embed = []
+
+        # --- DETECT FORMAT ---
+        # Check if it's the new nested format (List of Categories)
+        is_nested = isinstance(catalog_data, list) and len(catalog_data) > 0 and "category" in catalog_data[0]
+
+        if is_nested:
+            log.info("Detected NESTED catalog format (Categories).")
+            for group in catalog_data:
+                category = group.get("category", "General")
+                
+                # Assign weights based on category name
+                if "Essential" in category:
+                    weight = 10
+                elif "Nice-to-Have" in category:
+                    weight = 5
+                else:
+                    weight = 2
+
+                # Extract skills from this group
+                for skill in group.get("skills", []):
+                    # Safety check: ensure skill has a name
+                    if "name" not in skill:
+                        continue
+                        
+                    # Embed text: "Python (Essential): Description..."
+                    embed_text = f"{skill['name']} ({category}): {skill.get('description', '')}"
+                    
+                    flat_skills.append({
+                        "name": skill["name"],
+                        "description": skill.get("description", ""),
+                        "weight": weight,
+                        "embed_text": embed_text
+                    })
+                    texts_to_embed.append(embed_text)
+
+        else:
+            log.info("Detected FLAT catalog format (Simple List).")
+            for skill in catalog_data:
+                # Safety check
+                if "name" not in skill:
+                    continue
+
+                embed_text = f"{skill['name']}: {skill.get('description', '')}"
+                flat_skills.append({
+                    "name": skill["name"],
+                    "description": skill.get("description", ""),
+                    "weight": 5, # Default weight for flat lists
+                    "embed_text": embed_text
+                })
+                texts_to_embed.append(embed_text)
+
+        # --- EMBED & SAVE ---
+        if not flat_skills:
+            log.warning("No valid skills found to index.")
+            return
+
+        log.info(f"Generating embeddings for {len(flat_skills)} skills...")
         vectors = self.embedder.embed(texts_to_embed)
-        
+
         if not vectors:
             log.warning("No vectors generated. Skipping DB save.")
             return
 
-        log.info("Saving skill vectors to database...")
-        self.repo.upsert_skill_vectors(skills, vectors)
+        log.info(f"Saving {len(flat_skills)} skill vectors to database...")
+        self.repo.upsert_skill_vectors(flat_skills, vectors)
 
     def search(self, skill_text: str, top_k: int = 50) -> List[Dict[str, Any]]:
         """Search using free-text skill query (embeds the query first)."""
@@ -47,7 +95,6 @@ class SearchService:
             return []
         
         # Embed the single query string
-        # embed() returns a list of vectors, so we take the first one [0]
         vectors = self.embedder.embed([skill_text])
         if not vectors:
             return []

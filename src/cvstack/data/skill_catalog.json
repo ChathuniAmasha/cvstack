@@ -1,122 +1,137 @@
 [
   {
-    "name": "Python",
-    "description": "Core language for data analysis, scripting, and machine learning pipelines"
+    "category": "Essential Skills (Core Stack)",
+    "skills": [
+      {
+        "name": "Python",
+        "description": "Core language for data analysis, scripting, and machine learning pipelines"
+      },
+      {
+        "name": "SQL",
+        "description": "Querying, manipulating, and managing relational databases"
+      },
+      {
+        "name": "Git",
+        "description": "Version control system for tracking changes in source code"
+      },
+      {
+        "name": "Pandas",
+        "description": "Fast, flexible, and expressive data structures for data manipulation in Python"
+      },
+      {
+        "name": "NumPy",
+        "description": "Fundamental package for scientific computing and array processing in Python"
+      },
+      {
+        "name": "Linux/Bash",
+        "description": "Command-line scripting and operating system management"
+      },
+      {
+        "name": "Docker",
+        "description": "Containerization platform to build, ship, and run distributed applications"
+      },
+      {
+        "name": "PostgreSQL",
+        "description": "Advanced open source relational database with strong stability and extensibility"
+      },
+      {
+        "name": "Scikit-learn",
+        "description": "Simple and efficient tools for predictive data analysis and classical ML algorithms"
+      },
+      {
+        "name": "Tableau",
+        "description": "Visual analytics platform for business intelligence and data visualization"
+      }
+    ]
   },
   {
-    "name": "SQL",
-    "description": "Querying, manipulating, and managing relational databases"
+    "category": "Nice-to-Have Skills (Differentials)",
+    "skills": [
+      {
+        "name": "AWS Redshift",
+        "description": "Cloud data warehouse service for large scale data analysis"
+      },
+      {
+        "name": "Snowflake",
+        "description": "Cloud-native data warehouse allowing separation of storage and compute"
+      },
+      {
+        "name": "BigQuery",
+        "description": "Serverless, highly scalable, and cost-effective multi-cloud data warehouse"
+      },
+      {
+        "name": "Power BI",
+        "description": "Microsoft's interactive data visualization and business intelligence tool"
+      },
+      {
+        "name": "Airflow",
+        "description": "Platform to programmatically author, schedule, and monitor data workflows"
+      },
+      {
+        "name": "FastAPI",
+        "description": "Modern web framework for building APIs with Python"
+      },
+      {
+        "name": "Flask",
+        "description": "Micro web framework for Python, often used for deploying ML models"
+      },
+      {
+        "name": "MongoDB",
+        "description": "NoSQL document database for high volume data storage"
+      },
+      {
+        "name": "dbt",
+        "description": "Command line tool that enables data analysts and engineers to transform data in their warehouse"
+      },
+      {
+        "name": "Databricks",
+        "description": "Unified data analytics platform based on Apache Spark"
+      }
+    ]
   },
   {
-    "name": "R",
-    "description": "Statistical computing, data analysis, and graphical visualization"
-  },
-  {
-    "name": "Scala",
-    "description": "High-performance functional programming, often used with Apache Spark"
-  },
-  {
-    "name": "Java",
-    "description": "Backend systems and maintaining legacy big data infrastructure"
-  },
-  {
-    "name": "TensorFlow",
-    "description": "End-to-end open source platform for machine learning and deep neural networks"
-  },
-  {
-    "name": "PyTorch",
-    "description": "Deep learning framework focused on flexibility and ease of use"
-  },
-  {
-    "name": "Scikit-learn",
-    "description": "Simple and efficient tools for predictive data analysis and classical ML algorithms"
-  },
-  {
-    "name": "Pandas",
-    "description": "Fast, flexible, and expressive data structures for data manipulation in Python"
-  },
-  {
-    "name": "NumPy",
-    "description": "Fundamental package for scientific computing and array processing in Python"
-  },
-  {
-    "name": "Apache Spark",
-    "description": "Unified analytics engine for large-scale data processing and streaming"
-  },
-  {
-    "name": "Hadoop",
-    "description": "Framework that allows for the distributed processing of large data sets across clusters"
-  },
-  {
-    "name": "Kafka",
-    "description": "Distributed event streaming platform for high-performance data pipelines"
-  },
-  {
-    "name": "Airflow",
-    "description": "Platform to programmatically author, schedule, and monitor data workflows"
-  },
-  {
-    "name": "Docker",
-    "description": "Containerization platform to build, ship, and run distributed applications"
-  },
-  {
-    "name": "Kubernetes",
-    "description": "Automating deployment, scaling, and management of containerized applications"
-  },
-  {
-    "name": "AWS Redshift",
-    "description": "Cloud data warehouse service for large scale data analysis"
-  },
-  {
-    "name": "Snowflake",
-    "description": "Cloud-native data warehouse allowing separation of storage and compute"
-  },
-  {
-    "name": "BigQuery",
-    "description": "Serverless, highly scalable, and cost-effective multi-cloud data warehouse"
-  },
-  {
-    "name": "PostgreSQL",
-    "description": "Advanced open source relational database with strong stability and extensibility"
-  },
-  {
-    "name": "MongoDB",
-    "description": "NoSQL document database for high volume data storage"
-  },
-  {
-    "name": "Tableau",
-    "description": "Visual analytics platform for business intelligence and data visualization"
-  },
-  {
-    "name": "Power BI",
-    "description": "Microsoft's interactive data visualization and business intelligence tool"
-  },
-  {
-    "name": "Git",
-    "description": "Version control system for tracking changes in source code"
-  },
-  {
-    "name": "dbt",
-    "description": "Command line tool that enables data analysts and engineers to transform data in their warehouse"
-  },
-  {
-    "name": "Databricks",
-    "description": "Unified data analytics platform based on Apache Spark"
-  },
-  {
-    "name": "FastAPI",
-    "description": "Modern web framework for building APIs with Python"
-  },
-  {
-    "name": "Flask",
-    "description": "Micro web framework for Python, often used for deploying ML models"
-  },
-  {
-    "name": "Terraform",
-    "description": "Infrastructure as code software tool for building, changing, and versioning infrastructure"
-  },
-  {
-    "name": "Linux/Bash",
-    "description": "Command-line scripting and operating system management"
+    "category": "Specialized & Advanced Skills (Expert Tier)",
+    "skills": [
+      {
+        "name": "Apache Spark",
+        "description": "Unified analytics engine for large-scale data processing and streaming"
+      },
+      {
+        "name": "Kafka",
+        "description": "Distributed event streaming platform for high-performance data pipelines"
+      },
+      {
+        "name": "Kubernetes",
+        "description": "Automating deployment, scaling, and management of containerized applications"
+      },
+      {
+        "name": "TensorFlow",
+        "description": "End-to-end open source platform for machine learning and deep neural networks"
+      },
+      {
+        "name": "PyTorch",
+        "description": "Deep learning framework focused on flexibility and ease of use"
+      },
+      {
+        "name": "Terraform",
+        "description": "Infrastructure as code software tool for building, changing, and versioning infrastructure"
+      },
+      {
+        "name": "Hadoop",
+        "description": "Framework that allows for the distributed processing of large data sets across clusters"
+      },
+      {
+        "name": "Scala",
+        "description": "High-performance functional programming, often used with Apache Spark"
+      },
+      {
+        "name": "Java",
+        "description": "Backend systems and maintaining legacy big data infrastructure"
+      },
+      {
+        "name": "R",
+        "description": "Statistical computing, data analysis, and graphical visualization"
+      }
+    ]
   }
 ]

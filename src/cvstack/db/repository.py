@@ -73,21 +73,17 @@ class Repository:
 
     def search_candidates_by_skill_catalog(self, limit: int = 50) -> List[Dict[str, Any]]:
         """
-        Ranks candidates by TOTAL 'Skill Points' against the uploaded catalog.
-        
-        Logic:
-          - We check every candidate against ALL 30+ skills in your 'skill_vectors' table.
-          - Each match adds points to their score.
-          - Candidates with MORE matches appear at the top.
+        Ranks candidates using Weighted Scoring.
+        Essential skills contribute MORE to the score than Nice-to-Have.
         """
         sql = """
         WITH skill_matches AS (
-            -- 1. Compare Every Candidate Section vs Every Catalog Skill
             SELECT 
                 c.id AS candidate_id,
                 c.full_name,
                 c.email,
                 sk.skill_name,
+                sk.weight,  -- <--- We select the weight here
                 (sv.embedding <=> sk.embedding) AS distance
             FROM section_vectors sv
             JOIN sections s ON s.id = sv.section_id
@@ -95,27 +91,31 @@ class Repository:
             CROSS JOIN skill_vectors sk
         ),
         best_matches AS (
-            -- 2. Find the single best match for each skill per candidate.
-            -- We use a threshold of 0.65 to allow 'Good' matches (not just 'Perfect' ones).
+            -- Find best match per skill
             SELECT 
                 candidate_id,
                 full_name,
                 email,
                 skill_name,
+                weight,
                 MIN(distance) as best_distance
             FROM skill_matches
-            WHERE distance < 0.65
-            GROUP BY candidate_id, full_name, email, skill_name
+            WHERE distance < 0.65  -- Threshold for a "Good Match"
+            GROUP BY candidate_id, full_name, email, skill_name, weight
         ),
         candidate_scores AS (
-            -- 3. Calculate Score based on SUM (Quantity + Quality)
             SELECT 
                 candidate_id,
                 full_name,
                 email,
                 ARRAY_AGG(skill_name) AS matched_skills,
-                -- FORMULA: 10 points for having the skill + bonus for match quality
-                SUM(10 + (1 - best_distance)) AS total_score
+                
+                -- --- NEW FORMULA ---
+                -- Score = Skill Weight + (Match Quality Bonus)
+                -- Example: Essential (10) + Perfect Match (0 distance) = 11 points
+                -- Example: Nice-to-Have (5) + Perfect Match = 6 points
+                SUM(weight + (1 - best_distance)) AS total_score
+                
             FROM best_matches
             GROUP BY candidate_id, full_name, email
         )
@@ -141,8 +141,8 @@ class Repository:
                     "name": row[1],           
                     "full_name": row[1],      
                     "email": row[2],
-                    "matched_skills": row[3], # This list populates the blue tags
-                    "match_score": row[4]     # This score determines the ranking
+                    "matched_skills": row[3],
+                    "match_score": row[4]
                 }
                 for row in rows
             ]
@@ -156,18 +156,19 @@ class Repository:
         Inserts or updates skills in the skill_vectors table.
         """
         sql = """
-            INSERT INTO skill_vectors (skill_name, skill_description, embedding)
-            VALUES (%s, %s, %s)
+            INSERT INTO skill_vectors (skill_name, skill_description, weight, embedding)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (skill_name)
             DO UPDATE SET 
                 skill_description = EXCLUDED.skill_description,
+                weight = EXCLUDED.weight,
                 embedding = EXCLUDED.embedding;
         """
         
-        # Prepare data: (name, description, vector)
+        # Prepare data: (name, description, weight, vector)
         payload = []
         for s, vector in zip(skills, vectors):
-            payload.append((s["name"], s.get("description", ""), vector))
+            payload.append((s["name"], s.get("description", ""), s.get("weight", 5), vector))
 
         with self.conn.cursor() as cur:
             cur.executemany(sql, payload)

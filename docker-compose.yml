@@ -27,6 +27,8 @@ services:
       SKIP_EMBEDDING: ${SKIP_EMBEDDING:-0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
-      - "8080:8080"
+      - "8200:8080"
+    volumes:
+      - ./output:/app/output
     depends_on:
       - db
